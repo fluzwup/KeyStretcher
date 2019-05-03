@@ -12,6 +12,46 @@
 #include <openssl/sha.h>
 using namespace std;
 
+vector<unsigned char> SHA1(vector<unsigned char> input)
+{
+	vector<unsigned char> output;
+	output.resize(20);
+
+	::SHA1(&input[0], input.size(), &output[0]);
+
+	return output;
+}
+
+// HMAC_SHA1("", "") = fbdb1d1b18aa6c08324b7d64b71fb76370690e1d
+vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char> message)
+{
+	// trim keys longer than SHA1 block size (64 bytes) by hashing
+	if(key.size() > 64) key = SHA1(key);
+	
+	// pad key up to SHA1 block size by adding zeros to the right
+	key.resize(64, 0);
+	
+	// create inner and outer keys by XORing
+	vector<unsigned char> outer;
+	vector<unsigned char> inner;
+	for(unsigned int i = 0; i < key.size(); ++i)
+	{
+		outer.push_back(0x5c ^ key[i]);
+		inner.push_back(0x36 ^ key[i]);
+	}
+
+	// concatenate inner key with message and hash
+	inner.insert(inner.end(), message.begin(), message.end());
+	message = SHA1(inner);
+
+	// concatenate outer key with previous step output and hash
+	outer.insert(outer.end(), message.begin(), message.end());
+	message = SHA1(outer);
+
+	// result is the 20 byte HMAC
+	return message;
+}
+
 vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, string password, string salt)
 {
 	vector<unsigned char> key;
@@ -19,13 +59,10 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 	// make sure salt is an even number of hex digits; if not, pad with a leading zero
 	if(salt.length() % 2 == 1) salt = "0" + salt;
 
-	// buffer to hold the hash input and output
-	vector<unsigned char> output;
+	// buffer to hold the hash input (and output), and the binary version of the password
 	vector<unsigned char> input;
+	vector<unsigned char> pwd;
 	
-	// SHA1 has a 20 byte output
-	output.resize(20);
-
 	int blockIndex = 1;
 	while(key.size() < length)
 	{
@@ -35,10 +72,10 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		// convert password into unsigned chars
 		for(unsigned int i = 0; i < password.length(); ++i)
 		{
-			input.push_back((unsigned char)password[i]);
+			pwd.push_back((unsigned char)password[i]);
 		}
 	
-		// add salt, converted to binary
+		// put salt in hash input, converted to binary
 		for(unsigned int i = 0; i < salt.length(); i += 2)
 		{
 			// convert each pair of hex digits to a byte
@@ -51,26 +88,14 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		input.push_back((unsigned char)(blockIndex >> 8 && 0xFF));
 		input.push_back((unsigned char)(blockIndex && 0xFF));
 
-		printf("Hash input:  ");
-		for(unsigned int i = 0; i < input.size(); ++i)
-			printf("%02x", input[i]);
-		printf("\n");
-
 		// now repeat hashing operation the desired number of times
 		for(unsigned int j = passes; j > 0; --j)
 		{
-			SHA1(&input[0], input.size(), &output[0]);
-
-			// concatenate password plus output of previous round for next round
-			for(unsigned int i = 0; i < password.length(); ++i)
-			{
-				input.push_back((unsigned char)password[i]);
-			}
-			input.insert(input.end(), output.begin(), output.end());
+			input = HMAC_SHA1(pwd, input);
 		}
 
 		// concatenate output onto key until we have enough bytes
-		key.insert(key.end(), output.begin(), output.end());
+		key.insert(key.end(), input.begin(), input.end());
 
 		// increment the block index for the next block
 		++blockIndex;
@@ -100,12 +125,11 @@ int main(int argc, char **argv)
 	{
 		if(key[i] != target1[i])
 		{
-			printf("Failure!\n");
+			printf("Failure 1\n");
 			break;
 		}
 	}
 	
-	/*
 	unsigned char target2[] = 
 	{
 		0x3d, 0x2e, 0xec, 0x4f, 0xe4, 0x1c, 0x84, 0x9b, 0x80, 0xc8,
@@ -121,11 +145,10 @@ int main(int argc, char **argv)
 	{
 		if(key[i] != target2[i])
 		{
-			printf("Failure!\n");
+			printf("Failure 2\n");
 			break;
 		}
 	}
-	*/
 	
 	return 0;
 }
