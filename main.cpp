@@ -54,15 +54,16 @@ vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char>
 
 vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, string password, string salt)
 {
-	vector<unsigned char> key;
-
 	// make sure salt is an even number of hex digits; if not, pad with a leading zero
 	if(salt.length() % 2 == 1) salt = "0" + salt;
 
 	// buffer to hold the hash input (and output), and the binary version of the password
 	vector<unsigned char> input;
 	vector<unsigned char> pwd;
-	
+
+	// vector to hold generated key
+	vector<unsigned char> key;
+
 	int blockIndex = 1;
 	while(key.size() < length)
 	{
@@ -71,16 +72,12 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 
 		// convert password into unsigned chars
 		for(unsigned int i = 0; i < password.length(); ++i)
-		{
 			pwd.push_back((unsigned char)password[i]);
-		}
 	
 		// put salt in hash input, converted to binary
 		for(unsigned int i = 0; i < salt.length(); i += 2)
-		{
 			// convert each pair of hex digits to a byte
 			input.push_back((unsigned char)std::stoi(salt.substr(i, 2), NULL, 16));
-		}
 		
 		// add four bytes of block index, most significant bit first
 		input.push_back((unsigned char)(blockIndex >> 24));
@@ -88,14 +85,22 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		input.push_back((unsigned char)(blockIndex >> 8 && 0xFF));
 		input.push_back((unsigned char)(blockIndex && 0xFF));
 
+		// zero out block accumulator
+		vector<unsigned char> output;
+		output.resize(20, 0);
 		// now repeat hashing operation the desired number of times
-		for(unsigned int j = passes; j > 0; --j)
+		for(unsigned int i = passes; i > 0; --i)
 		{
+			// each pass will use the previous pass's output
 			input = HMAC_SHA1(pwd, input);
+
+			// XOR each step of the HMAC into output
+			for(unsigned int j = 0; j < input.size(); ++j)
+				output[j] ^= input[j];
 		}
 
 		// concatenate output onto key until we have enough bytes
-		key.insert(key.end(), input.begin(), input.end());
+		key.insert(key.end(), output.begin(), output.end());
 
 		// increment the block index for the next block
 		++blockIndex;
@@ -123,14 +128,55 @@ int main(int argc, char **argv)
 
 	for(unsigned int i = 0; i < key.size(); ++i)
 	{
+		printf("%02x", key[i]);
 		if(key[i] != target1[i])
 		{
-			printf("Failure 1\n");
+			printf(" Failure 1\n");
 			break;
 		}
 	}
+	printf("\n");
 	
 	unsigned char target2[] = 
+	{
+		0xea, 0x6c, 0x01, 0x4d, 0xc7, 0x2d, 0x6f, 0x8c, 0xcd, 0x1e, 
+		0xd9, 0x2a, 0xce, 0x1d, 0x41, 0xf0, 0xd8, 0xde, 0x89, 0x57
+	};
+
+	// salt is hex for "salt"
+	key = StretchKey(20, 2, "password", "73616c74");
+
+	for(unsigned int i = 0; i < key.size(); ++i)
+	{
+		printf("%02x", key[i]);
+		if(key[i] != target2[i])
+		{
+			printf(" Failure 2\n");
+			break;
+		}
+	}
+	printf("\n");
+	
+	unsigned char target3[] = 
+	{
+		0x4b, 0x00, 0x79, 0x01, 0xb7, 0x65, 0x48, 0x9a, 0xbe, 0xad,
+	       	0x49, 0xd9, 0x26, 0xf7, 0x21, 0xd0, 0x65, 0xa4, 0x29, 0xc1
+	};
+
+	// salt is hex for "salt"
+	key = StretchKey(20, 4096, "password", "73616c74");
+
+	for(unsigned int i = 0; i < key.size(); ++i)
+	{
+		printf("%02x", key[i]);
+		if(key[i] != target3[i])
+		{
+			printf(" Failure 2\n");
+			break;
+		}
+	}
+	printf("\n");
+	unsigned char target4[] = 
 	{
 		0x3d, 0x2e, 0xec, 0x4f, 0xe4, 0x1c, 0x84, 0x9b, 0x80, 0xc8,
 		0xd8, 0x36, 0x62, 0xc0, 0xe4, 0x4a, 0x8b, 0x29, 0x1a, 0x96, 
@@ -143,12 +189,14 @@ int main(int argc, char **argv)
 
 	for(unsigned int i = 0; i < key.size(); ++i)
 	{
-		if(key[i] != target2[i])
+		printf("%02x", key[i]);
+		if(key[i] != target4[i])
 		{
-			printf("Failure 2\n");
+			printf(" Failure 3\n");
 			break;
 		}
 	}
+	printf("\n");
 	
 	return 0;
 }
