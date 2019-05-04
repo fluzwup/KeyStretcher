@@ -1,8 +1,9 @@
 /* 
  * This program takes a password and a salt, and uses a hash operation to 
  * generate a key of a given length from the input data.  The password will
- % be ASCII data, the salt will be hexidecimal data.  An optional parameter
- * will be the number of hash passes, which will default to 4096.
+ * be ASCII data, the salt will be hexidecimal data.  This will generate
+ * keys compliant with PKCS #5, PBKDF2.  Test cases are taken from iIETF 
+ * RFC 6070.
  */
 
 #include <cstdlib>
@@ -12,12 +13,14 @@
 #include <openssl/sha.h>
 using namespace std;
 
+// dumps a vector of unsigned chars as a hexadecimal string
 void PrintVector(vector<unsigned char> v)
 {
 	for(unsigned int i = 0; i < v.size(); ++i)
 		printf("%02x", v[i]);
 }
 
+// performs a SHA1 hash on a vector of unsigned chars, using OpenSSL SHA1 function
 vector<unsigned char> SHA1(vector<unsigned char> input)
 {
 	vector<unsigned char> output;
@@ -28,7 +31,8 @@ vector<unsigned char> SHA1(vector<unsigned char> input)
 	return output;
 }
 
-// HMAC_SHA1("", "") = fbdb1d1b18aa6c08324b7d64b71fb76370690e1d
+// HMAC function using SHA1.  
+// Test vector: HMAC_SHA1("", "") = fbdb1d1b18aa6c08324b7d64b71fb76370690e1d
 vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char> message)
 {
 	// trim keys longer than SHA1 block size (64 bytes) by hashing
@@ -58,6 +62,9 @@ vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char>
 	return message;
 }
 
+// Key stretching function; takes a password and optional (but highly recommended) salti (128 bits 
+// recommended by NIST), plus an iteration count (recommended 4096) and generates a key of the given
+// length, which can then be used for a symmetric encryption algorithm such as 3DES or AES. 
 vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, string password, string salt)
 {
 	// make sure salt is an even number of hex digits; if not, pad with a leading zero
@@ -91,17 +98,9 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		input.push_back((unsigned char)(blockIndex >> 8 & 0xFF));
 		input.push_back((unsigned char)(blockIndex & 0xFF));
 
-		printf("Input to first iteration for block %i:  ", blockIndex);
-		PrintVector(input);
-		printf("\n");
-
 		// zero out block accumulator
 		vector<unsigned char> output;
 		output.resize(20, 0);
-
-		printf("Zeroed output vector:  ");
-		PrintVector(output);
-		printf("\n");
 
 		// now repeat hashing operation the desired number of times
 		for(unsigned int i = passes; i > 0; --i)
@@ -117,12 +116,6 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		// concatenate output onto key until we have enough bytes
 		key.insert(key.end(), output.begin(), output.end());
 
-		printf("Block %i output ", blockIndex);
-		PrintVector(output);
-		printf(" key ");
-		PrintVector(key);
-		printf("\n");
-
 		// increment the block index for the next block
 		++blockIndex;
 	}
@@ -133,6 +126,7 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 	return key;
 }
 
+// Test key stretcher against a set of PBKDF2 test cases
 int main(int argc, char **argv)
 {
 	vector<unsigned char> key;
