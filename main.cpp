@@ -88,6 +88,7 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		// zero out block accumulator
 		vector<unsigned char> output;
 		output.resize(20, 0);
+
 		// now repeat hashing operation the desired number of times
 		for(unsigned int i = passes; i > 0; --i)
 		{
@@ -101,6 +102,14 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 
 		// concatenate output onto key until we have enough bytes
 		key.insert(key.end(), output.begin(), output.end());
+		printf("Block %i output ", blockIndex);
+
+		for(unsigned int i = 0; i < output.size(); ++i)
+			printf("%02x", output[i]);
+		printf(" key ");
+		for(unsigned int i = 0; i < key.size(); ++i)
+			printf("%02x", key[i]);
+		printf("\n");
 
 		// increment the block index for the next block
 		++blockIndex;
@@ -126,6 +135,7 @@ int main(int argc, char **argv)
 	// salt is hex for "salt"
 	key = StretchKey(20, 1, "password", "73616c74");
 
+	printf("Final key:  ");
 	for(unsigned int i = 0; i < key.size(); ++i)
 	{
 		printf("%02x", key[i]);
@@ -146,6 +156,7 @@ int main(int argc, char **argv)
 	// salt is hex for "salt"
 	key = StretchKey(20, 2, "password", "73616c74");
 
+	printf("Final key:  ");
 	for(unsigned int i = 0; i < key.size(); ++i)
 	{
 		printf("%02x", key[i]);
@@ -166,6 +177,7 @@ int main(int argc, char **argv)
 	// salt is hex for "salt"
 	key = StretchKey(20, 4096, "password", "73616c74");
 
+	printf("Final key:  ");
 	for(unsigned int i = 0; i < key.size(); ++i)
 	{
 		printf("%02x", key[i]);
@@ -176,6 +188,7 @@ int main(int argc, char **argv)
 		}
 	}
 	printf("\n");
+
 	unsigned char target4[] = 
 	{
 		0x3d, 0x2e, 0xec, 0x4f, 0xe4, 0x1c, 0x84, 0x9b, 0x80, 0xc8,
@@ -185,14 +198,15 @@ int main(int argc, char **argv)
 
 	// salt is hex for "saltSALTsaltSALTsaltSALTsaltSALTsalt"
 	key = StretchKey(25, 4096, "passwordPASSWORDpassword", 
-			"73616c7453414c5473616c7453414c5473616c7453414c5473616c7453414c54");
+		"73616c7453414c5473616c7453414c5473616c7453414c5473616c7453414c5473616c74");
 
+	printf("Final key:  ");
 	for(unsigned int i = 0; i < key.size(); ++i)
 	{
 		printf("%02x", key[i]);
 		if(key[i] != target4[i])
 		{
-			printf(" Failure 3\n");
+			printf(" Failure 4 at byte %i\n", i);
 			break;
 		}
 	}
