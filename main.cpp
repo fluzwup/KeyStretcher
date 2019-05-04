@@ -12,6 +12,12 @@
 #include <openssl/sha.h>
 using namespace std;
 
+void PrintVector(vector<unsigned char> v)
+{
+	for(unsigned int i = 0; i < v.size(); ++i)
+		printf("%02x", v[i]);
+}
+
 vector<unsigned char> SHA1(vector<unsigned char> input)
 {
 	vector<unsigned char> output;
@@ -64,15 +70,15 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 	// vector to hold generated key
 	vector<unsigned char> key;
 
+	// convert password into unsigned chars
+	for(unsigned int i = 0; i < password.length(); ++i)
+		pwd.push_back((unsigned char)password[i]);
+	
 	int blockIndex = 1;
 	while(key.size() < length)
 	{
 		// fill up input buffer with password + salt + block index
 		input.resize(0);
-
-		// convert password into unsigned chars
-		for(unsigned int i = 0; i < password.length(); ++i)
-			pwd.push_back((unsigned char)password[i]);
 	
 		// put salt in hash input, converted to binary
 		for(unsigned int i = 0; i < salt.length(); i += 2)
@@ -81,13 +87,21 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 		
 		// add four bytes of block index, most significant bit first
 		input.push_back((unsigned char)(blockIndex >> 24));
-		input.push_back((unsigned char)(blockIndex >> 16 && 0xFF));
-		input.push_back((unsigned char)(blockIndex >> 8 && 0xFF));
-		input.push_back((unsigned char)(blockIndex && 0xFF));
+		input.push_back((unsigned char)(blockIndex >> 16 & 0xFF));
+		input.push_back((unsigned char)(blockIndex >> 8 & 0xFF));
+		input.push_back((unsigned char)(blockIndex & 0xFF));
+
+		printf("Input to first iteration for block %i:  ", blockIndex);
+		PrintVector(input);
+		printf("\n");
 
 		// zero out block accumulator
 		vector<unsigned char> output;
 		output.resize(20, 0);
+
+		printf("Zeroed output vector:  ");
+		PrintVector(output);
+		printf("\n");
 
 		// now repeat hashing operation the desired number of times
 		for(unsigned int i = passes; i > 0; --i)
@@ -102,13 +116,11 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 
 		// concatenate output onto key until we have enough bytes
 		key.insert(key.end(), output.begin(), output.end());
-		printf("Block %i output ", blockIndex);
 
-		for(unsigned int i = 0; i < output.size(); ++i)
-			printf("%02x", output[i]);
+		printf("Block %i output ", blockIndex);
+		PrintVector(output);
 		printf(" key ");
-		for(unsigned int i = 0; i < key.size(); ++i)
-			printf("%02x", key[i]);
+		PrintVector(key);
 		printf("\n");
 
 		// increment the block index for the next block
@@ -206,7 +218,7 @@ int main(int argc, char **argv)
 		printf("%02x", key[i]);
 		if(key[i] != target4[i])
 		{
-			printf(" Failure 4 at byte %i\n", i);
+			printf(" Failure 4 at byte %i, should be %02x\n", i, target4[i]);
 			break;
 		}
 	}
