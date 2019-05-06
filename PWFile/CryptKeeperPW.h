@@ -15,6 +15,12 @@ class CryptKeeperPW : public CryptKeeperDES
 {
 protected:
 	string password;
+
+	vector<unsigned char> SHA1(vector<unsigned char> input);
+	vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char> message);
+	vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, string password, 
+		vector<unsigned char> salt);
+	
 public:
 	CryptKeeperPW(const char *key);
 	~CryptKeeperPW();

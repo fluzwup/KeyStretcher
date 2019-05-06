@@ -12,7 +12,7 @@ using namespace std;
 #include "CryptKeeperPW.h"
 
 // performs a SHA1 hash on a vector of unsigned chars, using OpenSSL SHA1 function
-vector<unsigned char> SHA1(vector<unsigned char> input)
+vector<unsigned char> CryptKeeperPW::SHA1(vector<unsigned char> input)
 {
 	vector<unsigned char> output;
 	output.resize(20);
@@ -24,7 +24,7 @@ vector<unsigned char> SHA1(vector<unsigned char> input)
 
 // HMAC function using SHA1.  
 // Test vector: HMAC_SHA1("", "") = fbdb1d1b18aa6c08324b7d64b71fb76370690e1d
-vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char> message)
+vector<unsigned char> CryptKeeperPW::HMAC_SHA1(vector<unsigned char> key, vector<unsigned char> message)
 {
 	// trim keys longer than SHA1 block size (64 bytes) by hashing
 	if(key.size() > 64) key = SHA1(key);
@@ -53,10 +53,11 @@ vector<unsigned char> HMAC_SHA1(vector<unsigned char> key, vector<unsigned char>
 	return message;
 }
 
-// Key stretching function; takes a password and optional (but highly recommended) salti (128 bits 
+// Key stretching function; takes a password and optional (but highly recommended) salt (128 bits 
 // recommended by NIST), plus an iteration count (recommended 4096) and generates a key of the given
 // length, which can then be used for a symmetric encryption algorithm such as 3DES or AES. 
-vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, string password, vector<unsigned char> salt)
+vector<unsigned char> CryptKeeperPW::StretchKey(unsigned int length, unsigned int passes, string password, 
+		vector<unsigned char> salt)
 {
 	// buffer to hold the hash input (and output), and the binary version of the password
 	vector<unsigned char> input;
@@ -113,8 +114,8 @@ vector<unsigned char> StretchKey(unsigned int length, unsigned int passes, strin
 	return key;
 }
 
-// Store the password, we can't create it until we have a nonce to use as a 
-// salt.  Initialize CryptKeeperDES with a blank key.
+// Store the password.  We can't create a key until we have a nonce to use as a 
+// salt, so initialize CryptKeeperDES with a blank key.
 CryptKeeperPW::CryptKeeperPW(const char *pw) : CryptKeeperDES("0000000000000000")
 {
 	password = pw;
@@ -130,8 +131,12 @@ bool CryptKeeperPW::Open(const char *filename, const char *mode)
 	// if the file exists, this will read the nonce, if it doesn't, it will create one
 	if(!CryptKeeperDES::Open(filename, mode)) return false;
 
-	// now the nonce is available; take that and the password and generate the key
+	// now the nonce is available; take that and the password and generate a triple-length
+	//  DES key from it (24 bytes)
+	// the one-block nonce for DES is only 64 bits, but it's truly random, so should be 
+	//  pretty secure; certainly more entropy than most passwords
 	key = StretchKey(24, 4096, password, nonce);
 
 	return true;
 }
+
