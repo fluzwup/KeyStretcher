@@ -10,29 +10,40 @@ using namespace std;
 // Test key stretcher against a set of PBKDF2 test cases
 int main(int argc, char **argv)
 {
-	const char *filename = "test.enc";
-	const char *password = "This is my password.  There are many like it, but this one is mine.";
-	const char *data = "This is some data to put in the encrypted file.\n";
+	string filename = argv[1];
+	string password = argv[2];
 	
-	CryptKeeperPW cc(password);
+	CryptKeeperPW cc(password.c_str());
 
-	cc.Open(filename, "w");
-	for(int i = 0; i < 10; ++i)
-		cc.Write((void *)data, strlen(data));
-	cc.Close();
-
-	cc.Open(filename, "a");
-	for(int i = 0; i < 10; ++i)
-		cc.Write((void *)data, strlen(data));
-	cc.Close();
-
-	unsigned char buffer[64];
-	FILE *fp = fopen("test.txt", "w");
-	cc.Open(filename, "r");
-	while(cc.Read(buffer, 64) == 64)
-		fwrite((void *)buffer, 64, 1, fp);
-	cc.Close();
-	fclose(fp);
+	// if the file ends in .enc, assume it's encrypted, and try to decrypt it
+	if(filename.substr(filename.length() - 4, 4) == ".enc")
+	{
+		unsigned char buffer[4096];
+		FILE *fp = fopen(filename.substr(0, filename.length() - 4).c_str(), "w");
+		cc.Open(filename.c_str(), "r");
+		int size = 4096;
+		while(size == 4096)
+		{
+			size = cc.Read(buffer, 4096);
+			fwrite((void *)buffer, 1, size, fp);
+		}
+		cc.Close();
+		fclose(fp);
+	}
+	else
+	{
+		unsigned char buffer[4096];
+		FILE *fp = fopen(filename.c_str(), "r");
+		cc.Open((filename + ".enc").c_str(), "w");
+		int size = 4096;
+		while(size == 4096)
+		{
+			size = fread(buffer, 1, 4096, fp);
+			cc.Write(buffer, size);
+		}
+		cc.Close();
+		fclose(fp);
+	}
 
 	return 0;
 }

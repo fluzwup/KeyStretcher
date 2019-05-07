@@ -54,6 +54,7 @@ void CryptKeeperDES::DecryptBlock(vector<unsigned char> &data, int offset, int c
 
 	// add block counter to nonce
 	static vector<unsigned char> modifiedNonce;
+	modifiedNonce.resize(blockSize);
 	ModifyNonce(counter, modifiedNonce);
 	
 	// decrypt data

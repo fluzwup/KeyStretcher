@@ -192,19 +192,13 @@ bool CryptKeeper::ReadFileHeader()
 	string version = strtok(NULL, " ");
 	fileSize = atoi(strtok(NULL, " "));
 	string kcv;
-	if(version == "1.0")
-	{
-		kcv = strtok(NULL, "\n");
-	}
-	else
-	{
-		kcv = strtok(NULL, " ");
-		string hexNonce = strtok(NULL, "\n");
 
-		int len = blockSize;
-		nonce.resize(blockSize);
-		Hex2Bin(hexNonce.c_str(), &nonce[0], len);
-	}
+	kcv = strtok(NULL, " ");
+	string hexNonce = strtok(NULL, "\n");
+
+	int len = blockSize;
+	nonce.resize(blockSize);
+	Hex2Bin(hexNonce.c_str(), &nonce[0], len);
 
 	if(name != "CryptKeeper") return false;
 	if(version != fileVersion) return false;
@@ -290,7 +284,7 @@ void CryptKeeper::Close()
 
 		fseek(fp, 0, SEEK_SET);
 
-		fprintf(fp, "Cryptkeeper %s %i %s %s\n", fileVersion.c_str(),
+		fprintf(fp, "CryptKeeper %s %i %s %s\n", fileVersion.c_str(),
 			fileSize, GetKCV().c_str(), hexNonce.c_str());
 	}
 	
