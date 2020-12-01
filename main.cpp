@@ -2,7 +2,7 @@
  * This program takes a password and a salt, and uses a hash operation to 
  * generate a key of a given length from the input data.  The password will
  * be ASCII data, the salt will be hexidecimal data.  This will generate
- * keys compliant with PKCS #5, PBKDF2.  Test cases are taken from iIETF 
+ * keys compliant with PKCS #5, PBKDF2.  Test cases are taken from IETF 
  * RFC 6070.
  */
 
